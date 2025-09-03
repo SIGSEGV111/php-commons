@@ -1,0 +1,161 @@
+<?php
+declare(strict_types=1);
+namespace phpcom\util;
+
+class KeyNotFoundException extends \Exception
+{
+	public function __construct(
+		public readonly string $key,
+		public readonly string $context = 'array',
+		?\Throwable $previous = null
+	)
+	{
+		$message = sprintf("Key '%s' not found in %s.", $key, $context);
+		parent::__construct($message, 0, $previous);
+	}
+}
+
+class IoException extends \RuntimeException
+{
+	public function __construct(
+		public readonly string $operation,
+		public readonly string $resource = '',
+		?\Throwable $previous = null
+	) {
+		$message = sprintf(
+			"I/O operation '%s' failed%s.",
+			$operation,
+			$resource !== '' ? " on resource '{$resource}'" : ''
+		);
+
+		parent::__construct($message, $code, $previous);
+	}
+
+	/**
+	* Helper for fopen() failures.
+	*/
+	public static function forOpen(string $filename, ?\Throwable $previous = null): self
+	{
+		return new self('fopen', $filename, 0, $previous);
+	}
+
+	/**
+	* Helper for fread() failures.
+	*/
+	public static function forRead(string $filename = '', ?\Throwable $previous = null): self
+	{
+		return new self('fread', $filename, 0, $previous);
+	}
+
+	/**
+	* Helper for fwrite() failures.
+	*/
+	public static function forWrite(string $filename = '', ?\Throwable $previous = null): self
+	{
+		return new self('fwrite', $filename, 0, $previous);
+	}
+}
+
+class DirectoryIterator implements IteratorAggregate
+{
+	public string $root_dir;
+	public string $filter_regex;
+	public bool $match_dirs;
+	public bool $match_files;
+	public bool $match_special;
+	public int $max_depth;
+
+	public function __construct(
+		string $root_dir,
+		string $filter_regex = "",
+		bool $match_dirs = true,
+		bool $match_files = true,
+		bool $match_special = true,
+		int $max_depth = 1
+	)
+	{
+		if (!is_dir($root_dir))
+			throw new InvalidArgumentException("Root directory '$root_dir' does not exist or is not a directory.");
+
+		if (@preg_match($filter_regex, '') === false)
+			throw new InvalidArgumentException("Invalid regex '$filter_regex'.");
+
+		$this->root_dir = realpath($root_dir);
+		$this->filter_regex = $filter_regex;
+		$this->match_dirs = $match_dirs;
+		$this->match_files = $match_files;
+		$this->match_special = $match_special;
+		$this->max_depth = $max_depth;
+	}
+
+	public function getIterator(): Traversable
+	{
+		return $this->iterate($this->root_dir, 0);
+	}
+
+	private function iterate(string $dir, int $depth): Generator
+	{
+		$entries = scandir($dir);
+		if ($entries === false)
+			throw new RuntimeException("Failed to read directory '$dir'.");
+
+		foreach ($entries as $entry)
+		{
+			if ($entry === '.' || $entry === '..')
+				continue;
+
+			$path = $dir . DIRECTORY_SEPARATOR . $entry;
+
+			if (!file_exists($path))
+				continue;
+
+			$type = filetype($path);
+			if ($type === false)
+				continue;
+
+			$matches = false;
+			switch ($type)
+			{
+				case 'dir':
+					$matches = $this->match_dirs;
+					break;
+				case 'file':
+					$matches = $this->match_files;
+					break;
+				default:
+					$matches = $this->match_special;
+					break;
+			}
+
+			if ($matches && preg_match($this->filter_regex, $entry))
+				yield $path;
+
+			if ($type === 'dir' && $depth < $this->max_depth || $this->max_depth < 0)
+				yield from $this->iterate($path, $depth + 1);
+		}
+	}
+}
+
+function getEnvDefault(string $key, string $default) : string
+{
+	$value = getenv($key);
+	return ($value === false) ? $default : $value;
+}
+
+function getEnvThrow(string $key) : string
+{
+	$value = getenv($key);
+	if($value === null)
+		throw new KeyNotFoundException($key, "environment");
+	return $value;
+}
+
+function readFile(string $file, bool $trim = false) : string
+{
+	$content = @file_get_contents($file);
+	if($content === false)
+		throw new IoException("file_get_contents", $file);
+	if($trim)
+		$content = trim($content);
+	return $value;
+}
