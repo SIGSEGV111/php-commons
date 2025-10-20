@@ -56,7 +56,7 @@ class IoException extends \RuntimeException
 	}
 }
 
-class DirectoryIterator implements IteratorAggregate
+class DirectoryIterator implements \IteratorAggregate
 {
 	public string $root_dir;
 	public string $filter_regex;
@@ -75,10 +75,10 @@ class DirectoryIterator implements IteratorAggregate
 	)
 	{
 		if (!is_dir($root_dir))
-			throw new InvalidArgumentException("Root directory '$root_dir' does not exist or is not a directory.");
+			throw new \InvalidArgumentException("Root directory '$root_dir' does not exist or is not a directory.");
 
 		if (@preg_match($filter_regex, '') === false)
-			throw new InvalidArgumentException("Invalid regex '$filter_regex'.");
+			throw new \InvalidArgumentException("Invalid regex '$filter_regex'.");
 
 		$this->root_dir = realpath($root_dir);
 		$this->filter_regex = $filter_regex;
@@ -88,16 +88,16 @@ class DirectoryIterator implements IteratorAggregate
 		$this->max_depth = $max_depth;
 	}
 
-	public function getIterator(): Traversable
+	public function getIterator(): \Traversable
 	{
 		return $this->iterate($this->root_dir, 0);
 	}
 
-	private function iterate(string $dir, int $depth): Generator
+	private function iterate(string $dir, int $depth): \Generator
 	{
 		$entries = scandir($dir);
 		if ($entries === false)
-			throw new RuntimeException("Failed to read directory '$dir'.");
+			throw new \RuntimeException("Failed to read directory '$dir'.");
 
 		foreach ($entries as $entry)
 		{
@@ -150,12 +150,35 @@ function getEnvThrow(string $key) : string
 	return $value;
 }
 
-function readFile(string $file, bool $trim = false) : string
+function readFileThrow(string $file, bool $trim = false) : string
 {
 	$content = @file_get_contents($file);
 	if($content === false)
 		throw new IoException("file_get_contents", $file);
 	if($trim)
 		$content = trim($content);
-	return $value;
+	return $content;
+}
+
+function readCsvFile(string $file, string $delimiter = ",", string $enclosure = '"'): array
+{
+	if (!is_readable($file))
+		throw new RuntimeException("File not readable: $file");
+
+	$handle = fopen($file, "r");
+	if ($handle === false)
+		throw new RuntimeException("Failed to open file: $file");
+
+	$data = [];
+	while (($row = fgetcsv($handle, 0, $delimiter, $enclosure)) !== false)
+		$data[] = $row;
+
+	if (!feof($handle))
+	{
+		fclose($handle);
+		throw new RuntimeException("Error reading file: $file");
+	}
+
+	fclose($handle);
+	return $data;
 }
