@@ -4,21 +4,21 @@ namespace phpcom\math;
 
 function integrateTrapezoidal(callable $f, float $x0, float $x1, int $n = 1000): float
 {
-	if ($n <= 0)
+	if($n <= 0)
 		throw new \InvalidArgumentException("n muss > 0 sein");
 
-	$dx = ($x1 - $x0) / $n;
+	$dx = ($x1 - $x0) / floatval($n);
 	$sum = 0.5 * ($f($x0) + $f($x1));
 
 	for ($i = 1; $i < $n; $i++)
-		$sum += $f($x0 + $i * $dx);
+		$sum += $f($x0 + floatval($i) * $dx);
 
 	return $sum * $dx;
 }
 
 function createInterpolator(array $points): callable
 {
-	if (count($points) == 0)
+	if(count($points) == 0)
 		throw new \InvalidArgumentException("no points given");
 
 	// Punkte nach x-Wert sortieren
@@ -30,7 +30,7 @@ function createInterpolator(array $points): callable
 	{
 		$n = count($points);
 
-		if ($x < $points[0][0] || $x > $points[$n - 1][0]) {
+		if($x < $points[0][0] || $x > $points[$n - 1][0]) {
 			throw new \OutOfRangeException("x = $x liegt außerhalb der Messwerte");
 		}
 
@@ -41,8 +41,8 @@ function createInterpolator(array $points): callable
 			$x1 = $points[$i + 1][0];
 			$y1 = $points[$i + 1][1];
 
-			if ($x >= $x0 && $x <= $x1) {
-				if ($x0 == $x1) {
+			if($x >= $x0 && $x <= $x1) {
+				if($x0 == $x1) {
 					return $y0; // sollte praktisch nicht vorkommen
 				}
 				$t = ($x - $x0) / ($x1 - $x0);
@@ -73,12 +73,13 @@ function scaleValue(float $value, string $unit, int $sig_digits = 3): string
 	$unit = trim($unit);
 	$unit_lower = mb_strtolower($unit, 'UTF-8');
 
-	if ($value == 0.0 || !is_finite($value))
+	if($value == 0.0 || !is_finite($value))
 	{
 		$num = ($value == 0.0) ? '0' : (string)$value;
 		return $num . $unit;
 	}
 
+	/** @var non-empty-array<int,string> */
 	static $prefixes = [
 		-30 => 'q',  // quecto
 		-27 => 'r',  // ronto
@@ -105,31 +106,31 @@ function scaleValue(float $value, string $unit, int $sig_digits = 3): string
 
 	$abs = abs($value);
 
-	$exp = (int)(3 * floor(log10($abs) / 3));
+	$exp = intval(3.0 * floor(log10($abs) / 3.0));
 	$min_exp = array_key_first($prefixes);
 	$max_exp = array_key_last($prefixes);
 
-	if ($exp < $min_exp)
+	if($exp < $min_exp)
 	{
 		$exp = $min_exp;
 	}
-	elseif ($exp > $max_exp)
+	elseif($exp > $max_exp)
 	{
 		$exp = $max_exp;
 	}
 
-	$scaled = $value / (10 ** $exp);
+	$scaled = $value / floatval(10 ** $exp);
 
-	if (abs($scaled) >= 1000 && $exp + 3 <= $max_exp)
-	{
-		$exp += 3;
-		$scaled = $value / (10 ** $exp);
-	}
-	elseif (abs($scaled) < 1 && $exp - 3 >= $min_exp)
-	{
-		$exp -= 3;
-		$scaled = $value / (10 ** $exp);
-	}
+	// if(abs($scaled) >= 1000.0 && $exp + 3 <= $max_exp)
+	// {
+	// 	$exp += 3;
+	// 	$scaled = $value / floatval(10 ** $exp);
+	// }
+	// elseif(abs($scaled) < 1.0 && $exp - 3 >= $min_exp)
+	// {
+	// 	$exp -= 3;
+	// 	$scaled = $value / floatval(10 ** $exp);
+	// }
 
 	$prefix = $prefixes[$exp];
 
@@ -140,10 +141,8 @@ function scaleValue(float $value, string $unit, int $sig_digits = 3): string
 		: $sig_digits - 1;
 
 	$formatted = number_format($scaled, $decimals, '.', '');
-	if (str_contains($formatted, '.'))
-	{
-		$formatted = rtrim(rtrim($formatted, '0'), '.');
-	}
+	if(str_contains($formatted, '.'))
+		$formatted = rtrim($formatted, '0.');
 
 	return $formatted . $prefix . $unit;
 }
